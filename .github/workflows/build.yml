@@ -1,0 +1,47 @@
+name: build
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            files: dist/BulletKeyboard.exe
+          - os: macos-latest # Apple Silicon
+            files: dist/BulletKeyboard-mac-arm64.zip
+          - os: macos-15-intel
+            files: dist/BulletKeyboard-mac-x86_64.zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: PYTHON=python bash packaging/build.sh
+        shell: bash
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BulletKeyboard-${{ matrix.os }}
+          path: ${{ matrix.files }}
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            BulletKeyboard.exe
+            BulletKeyboard-mac-*.zip
